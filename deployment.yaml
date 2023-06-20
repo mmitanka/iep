@@ -1,0 +1,120 @@
+version: '3'
+
+services:
+  authenticationDatabase:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    healthcheck:
+      test: [ "CMD","mysqladmin","ping","-h","localhost" ]
+      timeout: 15s
+      retries: 10
+    volumes:
+      - dbdata1:/var/lib/minemysql
+    networks:
+      - authenticationNet
+  authenticationDBMigration:
+    image: authenticationdbmigration
+    environment:
+      - DATABASE_URL=authenticationDatabase
+    depends_on:
+      authenticationDatabase:
+        condition: service_healthy
+    networks:
+      - authenticationNet
+  authentication:
+    image: authentication
+    environment:
+      - DATABASE_URL=authenticationDatabase
+    depends_on:
+      - authenticationDBMigration
+    ports:
+      - 5002:5002
+    networks:
+      - authenticationNet
+  modification:
+    image: modif
+    environment:
+      - DATABASE_URL=electionsDatabase
+      - redisHost=redis
+    ports:
+      - 5004:5004
+    networks:
+      - electionsNet
+      - authenticationNet
+    depends_on:
+      - electionsDatabase
+  redis:
+    image: redis
+    ports:
+      - 6379:6379
+    networks:
+      - electionsNet
+  electionsDatabase:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    healthcheck:
+      test: [ "CMD","mysqladmin","ping","-h","localhost" ]
+      timeout: 15s
+      retries: 10
+    volumes:
+      - dbdata1:/var/lib/minemysql
+    networks:
+      - electionsNet
+  electionsDBMigration:
+    image: electionsdbmigration
+    environment:
+      - DATABASE_URL=electionsDatabase
+    depends_on:
+      electionsDatabase:
+        condition: service_healthy
+    networks:
+      - electionsNet
+  electionsDameon:
+    image: electionsdameon
+    environment:
+      - DATABASE_URL=electionsDatabase
+      - redisHost=redis
+    depends_on:
+      - electionsDBMigration
+      - electionsDatabase
+      - redis
+    networks:
+      - electionsNet
+  adminer:
+    image: adminer
+    ports:
+      - 8080:8080
+    networks:
+      - electionsNet
+      - authenticationNet
+  electionsAdmin:
+    image: electionsadmin
+    environment:
+      - DATABASE_URL=electionsDatabase
+    depends_on:
+      - electionsDBMigration
+    ports:
+      - 5000:5000
+    networks:
+      - electionsNet
+  electionsVotingStation:
+    image: electionsvotingstation
+    environment:
+      - DATABASE_URL=electionsDatabase
+      - redisHost=redis
+    depends_on:
+      - electionsDBMigration
+      - electionsDameon
+      - redis
+    ports:
+      - 5001:5001
+    networks:
+      - electionsNet
+volumes:
+  dbdata1:
+
+networks:
+  authenticationNet:
+  electionsNet:

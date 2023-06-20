@@ -1,0 +1,116 @@
+version: '3'
+
+services:
+  authenticationDatabase:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    volumes:
+      - dbdata1:/var/lib/minemysql
+    networks:
+      - authenticationNet
+  authenticationDBMigration:
+    image: authenticationdbmigration
+    environment:
+      - DATABASE_URL=authenticationDatabase
+    networks:
+      - authenticationNet
+  authentication:
+    image: authentication
+    environment:
+      - DATABASE_URL=authenticationDatabase
+    ports:
+      - 5002:5002
+    networks:
+      - authenticationNet
+    deploy:
+      replicas: 3
+  redis:
+    image: redis
+    ports:
+      - 6379:6379
+    networks:
+      - redisAdminNet
+  electionsDatabase:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    volumes:
+      - dbdata2:/var/lib/minemysql
+    networks:
+      - electionsNet
+      - redisAdminNet
+  electionsDBMigration:
+    image: electionsdbmigration
+    environment:
+      - DATABASE_URL=electionsDatabase
+    networks:
+      - electionsNet
+      - redisAdminNet
+  electionsDameon:
+    image: electionsdameon
+    environment:
+      - DATABASE_URL=electionsDatabase
+      - redisHost=redis
+    networks:
+      - redisAdminNet
+    deploy:
+      replicas: 3
+  adminer:
+    image: adminer
+    ports:
+      - 8080:8080
+    networks:
+      - electionsNet
+      - authenticationNet
+      - redisAdminNet
+  electionsAdmin:
+    image: electionsadmin
+    environment:
+      - DATABASE_URL=electionsDatabase
+    ports:
+      - 5000:5000
+    networks:
+      - electionsNet
+      - redisAdminNet
+    deploy:
+      replicas: 3
+  electionsVotingStation:
+    image: electionsvotingstation
+    environment:
+      - DATABASE_URL=electionsDatabase
+      - redisHost=redis
+    ports:
+      - 5001:5001
+    networks:
+      - electionsNet
+    deploy:
+      replicas: 3
+  modification:
+    image: modif
+    environment:
+      - DATABASE_URL=electionsDatabase
+      - redisHost=redis
+    ports:
+      - 5004:5004
+    networks:
+      - electionsNet
+      - authenticationNet
+      - redisAdminNet
+    deploy:
+      replicas: 3
+
+volumes:
+  dbdata1:
+  dbdata2:
+
+networks:
+  authenticationNet:
+    driver:
+      overlay
+  electionsNet:
+    driver:
+      overlay
+  redisAdminNet:
+    driver:
+      overlay

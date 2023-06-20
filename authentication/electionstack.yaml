@@ -1,0 +1,64 @@
+version: '3'
+
+services:
+  redis:
+    image: redis
+    ports:
+      - 6379:6379
+    networks:
+      - electionsNet
+  electionsDatabase:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    healthcheck:
+      test: [ "CMD","mysqladmin","ping","-h","localhost" ]
+      timeout: 15s
+      retries: 10
+    volumes:
+      - dbdata1:/var/lib/minemysql
+    networks:
+      - electionsNet
+  electionsDBMigration:
+    image: electionsdbmigration
+    environment:
+      - DATABASE_URL=electionsDatabase
+    networks:
+      - electionsNet
+  electionsDameon:
+    image: electionsdameon
+    environment:
+      - DATABASE_URL=electionsDatabase
+      - redisHost=redis
+    networks:
+      - electionsNet
+  adminer:
+    image: adminer
+    ports:
+      - 8080:8080
+    networks:
+      - electionsNet
+      - authenticationNet
+  electionsAdmin:
+    image: electionsadmin
+    environment:
+      - DATABASE_URL=electionsDatabase
+    ports:
+      - 5000:5000
+    networks:
+      - electionsNet
+  electionsVotingStation:
+    image: electionsvotingstation
+    environment:
+      - DATABASE_URL=electionsDatabase
+      - redisHost=redis
+    ports:
+      - 5001:5001
+    networks:
+      - electionsNet
+volumes:
+  dbdata1:
+
+networks:
+  electionsNet:
+    driver: overlay
